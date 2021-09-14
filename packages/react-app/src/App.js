@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Contract } from "@ethersproject/contracts";
-import { getDefaultProvider } from "@ethersproject/providers";
 import { useQuery } from "@apollo/react-hooks";
+import { utils } from "ethers";
 
 import { Body, Button, Header, Image, Link } from "./components";
 import logo from "./ethereumLogo.png";
@@ -10,15 +10,46 @@ import useWeb3Modal from "./hooks/useWeb3Modal";
 import { addresses, abis } from "@project/contracts";
 import GET_TRANSFERS from "./graphql/subgraph";
 
-async function readOnChainData() {
-  // Should replace with the end-user wallet, e.g. Metamask
-  const defaultProvider = getDefaultProvider();
+async function readOnChainData(provider) {
   // Create an instance of an ethers.js Contract
   // Read more about ethers.js on https://docs.ethers.io/v5/api/contract/contract/
-  const ceaErc20 = new Contract(addresses.ceaErc20, abis.erc20, defaultProvider);
+  const wallet = "0xBc05ad6390eFA623322D0B8f2C86bC8F2D73f010"
+  const ceaErc20 = new Contract(addresses.bdtErc20, abis.erc20, provider);
   // A pre-defined address that owns some CEAERC20 tokens
-  const tokenBalance = await ceaErc20.balanceOf("0x3f8CB69d9c0ED01923F11c829BaE4D9a4CB6c82C");
+  const tokenBalance = await ceaErc20.balanceOf(wallet);
   console.log({ tokenBalance: tokenBalance.toString() });
+
+  addErc20TransferListener(provider, wallet)
+}
+
+function addErc20TransferListener(provider, address) {
+  const filterFrom = {
+    address: addresses.bdtErc20,
+    topics: [
+      utils.id('Transfer(address,address,uint256)'),
+      utils.hexZeroPad(address, 32)
+    ],
+  }
+  const filterTo = {
+    address: addresses.bdtErc20,
+    topics: [
+      utils.id('Transfer(address,address,uint256)'),
+      null,
+      utils.hexZeroPad(address, 32)
+    ],
+  }
+
+  const erc20Interface = new utils.Interface(abis.erc20)
+
+  provider.on(filterFrom, (rawLog) => {
+    const log = erc20Interface.parseLog(rawLog)
+    console.log(`Transfer ${utils.formatEther(log.args.value)} from ${log.args.from} to ${log.args.to}`)
+  })
+
+  provider.on(filterTo, (rawLog) => {
+    const log = erc20Interface.parseLog(rawLog)
+    console.log(`Transfer ${utils.formatEther(log.args.value)} from ${log.args.from} to ${log.args.to}`)
+  })
 }
 
 function WalletButton({ provider, loadWeb3Modal, logoutOfWeb3Modal }) {
@@ -41,7 +72,7 @@ function App() {
   const { loading, error, data } = useQuery(GET_TRANSFERS);
   const [provider, loadWeb3Modal, logoutOfWeb3Modal] = useWeb3Modal();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!loading && !error && data && data.transfers) {
       console.log({ transfers: data.transfers });
     }
@@ -58,7 +89,7 @@ function App() {
           Edit <code>packages/react-app/src/App.js</code> and save to reload.
         </p>
         {/* Remove the "hidden" prop and open the JavaScript console in the browser to see what this function does */}
-        <Button hidden onClick={() => readOnChainData()}>
+        <Button onClick={() => readOnChainData(provider)}>
           Read On-Chain Balance
         </Button>
         <Link href="https://ethereum.org/developers/#getting-started" style={{ marginTop: "8px" }}>
