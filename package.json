@@ -27,5 +27,9 @@
     "packages": [
       "packages/*"
     ]
+  },
+  "dependencies": {
+    "ethers": "^5.4.6",
+    "webpack": "4.42.0"
   }
 }

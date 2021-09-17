@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Contract } from "@ethersproject/contracts";
-import { useQuery } from "@apollo/react-hooks";
+import { useQuery, useMutation } from "@apollo/react-hooks";
 import { utils } from "ethers";
 
 import { Body, Button, Header, Image, Link } from "./components";
@@ -8,7 +8,10 @@ import logo from "./ethereumLogo.png";
 import useWeb3Modal from "./hooks/useWeb3Modal";
 
 import { addresses, abis } from "@project/contracts";
-import GET_TRANSFERS from "./graphql/subgraph";
+import {GET_TRANSFERS, SET_TRANSFER} from "./graphql/subgraph";
+
+let trackedWallets = [];
+
 
 async function readOnChainData(provider) {
   // Create an instance of an ethers.js Contract
@@ -43,6 +46,10 @@ function addErc20TransferListener(provider, address) {
 
   provider.on(filterFrom, (rawLog) => {
     const log = erc20Interface.parseLog(rawLog)
+    if(!(log.args.to in trackedWallets)){
+      trackedWallets.push(log.args.to);
+    }
+    console.log(log.args.to);
     console.log(`Transfer ${utils.formatEther(log.args.value)} from ${log.args.from} to ${log.args.to}`)
   })
 
@@ -78,6 +85,16 @@ function App() {
     }
   }, [loading, error, data]);
 
+     const [mutateFunction, updatedData] = useMutation(SET_TRANSFER,{
+  variables: {
+    to:'test', from:'test', value: 'test'
+  },
+});
+
+  function test(){
+    console.log("trackedWallets is ", trackedWallets);
+  }
+
   return (
     <div>
       <Header>
@@ -92,6 +109,11 @@ function App() {
         <Button onClick={() => readOnChainData(provider)}>
           Read On-Chain Balance
         </Button>
+
+          <Button onClick={() => test()}>
+          test
+        </Button>
+
         <Link href="https://ethereum.org/developers/#getting-started" style={{ marginTop: "8px" }}>
           Learn Ethereum
         </Link>
